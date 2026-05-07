@@ -22,7 +22,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Думаю...")
     
     response = client.chat.completions.create(
-        model="google/gemma-3-4b-it:free",
+        model="meta-llama/llama-3.2-3b-instruct:free",
         messages=[{"role": "user", "content": user_text}]
     )
     
