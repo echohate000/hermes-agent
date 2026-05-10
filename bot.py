@@ -2,22 +2,14 @@ import os
 import logging
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
-import google.generativeai as genai
+from google import genai
 
 logging.basicConfig(level=logging.INFO)
 
 TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
 GOOGLE_API_KEY = os.environ["GOOGLE_API_KEY"]
 
-genai.configure(api_key=GOOGLE_API_KEY)
-model = genai.GenerativeModel(
-    model_name="gemma-4-31b-it-v-0-1",
-    system_instruction="""Ты опытный программист-помощник. 
-Помогаешь писать, объяснять и исправлять код.
-Когда пишешь код — всегда оборачивай его в ```язык ... ```.
-Объясняй понятно, как будто объясняешь новичку.
-Отвечай на том языке на котором пишет пользователь."""
-)
+client = genai.Client(api_key=GOOGLE_API_KEY)
 
 chats = {}
 
@@ -38,7 +30,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.chat.send_action("typing")
 
     if user_id not in chats:
-        chats[user_id] = model.start_chat(history=[])
+        chats[user_id] = client.chats.create(
+            model="gemma-4-31b-it",
+            config={"system_instruction": "Ты опытный программист-помощник. Помогаешь писать, объяснять и исправлять код. Когда пишешь код — всегда оборачивай его в ```язык ... ```. Объясняй понятно. Отвечай на том языке на котором пишет пользователь."}
+        )
 
     try:
         response = chats[user_id].send_message(text)
@@ -46,9 +41,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if len(answer) > 4096:
             for i in range(0, len(answer), 4096):
-                await update.message.reply_text(answer[i:i+4096], parse_mode="Markdown")
+                await update.message.reply_text(answer[i:i+4096])
         else:
-            await update.message.reply_text(answer, parse_mode="Markdown")
+            await update.message.reply_text(answer)
 
     except Exception as e:
         await update.message.reply_text(f"Ошибка: {str(e)}")
@@ -57,7 +52,7 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id in chats:
         del chats[user_id]
-    await update.message.reply_text("🔄 Память очищена! Начинаем заново.")
+    await update.message.reply_text("🔄 Память очищена!")
 
 app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 app.add_handler(CommandHandler("start", start))
