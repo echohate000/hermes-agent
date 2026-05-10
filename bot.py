@@ -11,7 +11,7 @@ GOOGLE_API_KEY = os.environ["GOOGLE_API_KEY"]
 
 genai.configure(api_key=GOOGLE_API_KEY)
 model = genai.GenerativeModel(
-    model_name="gemma-4-31b-it",
+    model_name="gemma-4-31b-it-v-0-1",
     system_instruction="""Ты опытный программист-помощник. 
 Помогаешь писать, объяснять и исправлять код.
 Когда пишешь код — всегда оборачивай его в ```язык ... ```.
