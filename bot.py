@@ -31,7 +31,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if user_id not in chats:
         chats[user_id] = client.chats.create(
-            model="gemma-4-31b-it",
+            model="gemini-2.0-flash",
             config={"system_instruction": "Ты опытный программист-помощник. Помогаешь писать, объяснять и исправлять код. Когда пишешь код — всегда оборачивай его в ```язык ... ```. Объясняй понятно. Отвечай на том языке на котором пишет пользователь."}
         )
 
