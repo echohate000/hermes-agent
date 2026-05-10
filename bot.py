@@ -1,17 +1,17 @@
 import os
 import logging
+import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
-from google import genai
 
 logging.basicConfig(level=logging.INFO)
 
 TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
 GOOGLE_API_KEY = os.environ["GOOGLE_API_KEY"]
 
-client = genai.Client(api_key=GOOGLE_API_KEY)
+SYSTEM_PROMPT = "Ты опытный программист-помощник. Помогаешь писать, объяснять и исправлять код. Когда пишешь код — всегда оборачивай его в ```язык ... ```. Объясняй понятно. Отвечай на том языке на котором пишет пользователь."
 
-chats = {}
+histories = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -29,15 +29,22 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.chat.send_action("typing")
 
-    if user_id not in chats:
-        chats[user_id] = client.chats.create(
-            model="gemini-2.0-flash",
-            config={"system_instruction": "Ты опытный программист-помощник. Помогаешь писать, объяснять и исправлять код. Когда пишешь код — всегда оборачивай его в ```язык ... ```. Объясняй понятно. Отвечай на том языке на котором пишет пользователь."}
-        )
+    if user_id not in histories:
+        histories[user_id] = []
+
+    histories[user_id].append({"role": "user", "parts": [{"text": text}]})
 
     try:
-        response = chats[user_id].send_message(text)
-        answer = response.text
+        response = requests.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GOOGLE_API_KEY}",
+            json={
+                "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+                "contents": histories[user_id]
+            }
+        )
+        data = response.json()
+        answer = data["candidates"][0]["content"]["parts"][0]["text"]
+        histories[user_id].append({"role": "model", "parts": [{"text": answer}]})
 
         if len(answer) > 4096:
             for i in range(0, len(answer), 4096):
@@ -50,12 +57,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    if user_id in chats:
-        del chats[user_id]
+    histories[user_id] = []
     await update.message.reply_text("🔄 Память очищена!")
 
 app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-app.add_handler(CommandHandler("start", start))
-app.add_handler(CommandHandler("reset", reset))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-app.run_polling()
+app.add_handler(Command
